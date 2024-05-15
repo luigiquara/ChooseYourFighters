@@ -1,0 +1,5 @@
+src/brain_segmentation_pytorch
+src/HybridNets
+src/nts_net
+src/ntsnet-cub200
+src/__pycache__
