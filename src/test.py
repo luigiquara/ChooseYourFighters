@@ -10,18 +10,20 @@ def test_loader():
     dl = DataLoader(dataset['train'], batch_size=32, collate_fn=collate_fn)
     imgs, labels = next(iter(dl))
 
-def test_model():
+def test_shapes():
     output_shapes = []
     models = ['NTSNET', 'SWSL_ResNext', 'HybridNets', 'UNet']#, 'ViT_IN', 'ViT_food101']
+    device = 'cpu'
+
     for model_name in models:
-        source, model, transform = load_model(model_name, 'cuda')
+        source, model, transform = load_model(model_name, device)
         dataset, collate_fn = load_dataset('imagenet_sketch', transform=transform)
         dl = DataLoader(dataset['train'], batch_size=2, collate_fn=collate_fn)
 
         model.eval()
-        model.to(torch.device('cuda'))
+        model.to(torch.device(device))
         for X, y in dl:
-            X = X.to(torch.device('cuda'))
+            X = X.to(torch.device(device))
             out = model(X)
             output_shapes.append(out.shape)
             break
@@ -55,5 +57,20 @@ def test_hybridnets():
 
         breakpoint()
 
+def test_unet():
+    model_name = 'UNet'
+    dataset_name = 'imagenet_sketch'
 
-test_hybridnets()
+    source, model, transform = load_model(model_name, 'cuda')
+    dataset, collate_fn = load_dataset(dataset_name, transform=transform)
+    loader = DataLoader(dataset['train'], batch_size=2, collate_fn=collate_fn)
+
+    model.eval()
+    model.to(torch.device('cuda'))
+    for X, y in loader:
+        X = X.to(torch.device('cuda'))
+
+        out = model(X)
+        break
+
+test_shapes()

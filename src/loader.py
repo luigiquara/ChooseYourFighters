@@ -92,6 +92,7 @@ def load_model(model_name: str, device: str):
             def __init__(self, model):
                 super().__init__()
                 self.model = model
+                self.avgpool = torch.nn.AdaptiveAvgPool2d((1,1))
 
             def forward(self, x):
                 features, regression, classification, anchors, segmentation = self.model(x)
@@ -99,7 +100,7 @@ def load_model(model_name: str, device: str):
                 # obtain a single value for each channel
                 # (batch_size, 160, height, width) -> (batch_size, 160, 1, 1) -> (batch_size, 160)
                 pooled = []
-                for feature in features: pooled.append(avgpool(feature).squeeze())
+                for feature in features: pooled.append(self.avgpool(feature).squeeze())
 
                 # concat all feature maps
                 # (5, batch_size, 160) -> (batch_size, 800)
@@ -132,13 +133,15 @@ def load_model(model_name: str, device: str):
             def __init__(self, model):
                 super().__init__()
                 self.model = model
+                self.avgpool = torch.nn.AdaptiveAvgPool2d((1,1))
             
             def forward(self, x):
                 output, features = self.model(x)
-                return features
+                features = self.avgpool(features)
+                return features.squeeze()
 
-        model = torch.hub.load('mateuszbuda/brain-segmentation-pytorch', 'unet',
-                                in_channels=3, out_channels=1, init_features=32, pretrained=True)
+        #model = torch.hub.load('mateuszbuda/brain-segmentation-pytorch', 'unet', in_channels=3, out_channels=1, init_features=32, pretrained=True)
+        model = torch.hub.load('brain_segmentation_pytorch', 'unet', source='local', in_channels=3, out_channels=1, init_features=32, pretrained=True)
         model = UNetMod(model)
 
         transform = {
