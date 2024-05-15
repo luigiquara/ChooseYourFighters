@@ -1,7 +1,9 @@
+import random
+
 import torch
 from torch.utils.data import DataLoader
 
-from loader import load_model, load_dataset
+from loader import Loader
 
 def test_loader():
     source, model, transform = load_model('NTSNET', 'cpu')
@@ -73,4 +75,21 @@ def test_unet():
         out = model(X)
         break
 
-test_shapes()
+def test_load_all_models():
+    device = 'cuda'
+    l = Loader()
+    sources, models, transformations = l.load_all_models(device)
+
+    assert len(sources) == len(models) == len(transformations) == len(l.supported_models), 'test_load_all_models: lengths do not match'
+
+def test_load_all_datasets():
+    device = 'cpu'
+    l = Loader()
+    m_name = random.choice(l.supported_models)
+
+    _, _, transform = l.load_model(m_name, device)
+    datasets, collate_fn = l.load_all_datasets(transform)
+
+    assert len(datasets) == len(l.supported_datasets), 'test_load_all_datasets: lengths do not match'
+
+test_load_all_datasets()
