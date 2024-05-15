@@ -95,7 +95,17 @@ def load_model(model_name: str, device: str):
 
             def forward(self, x):
                 features, regression, classification, anchors, segmentation = self.model(x)
-                return regression
+
+                # obtain a single value for each channel
+                # (batch_size, 160, height, width) -> (batch_size, 160, 1, 1) -> (batch_size, 160)
+                pooled = []
+                for feature in features: pooled.append(avgpool(feature).squeeze())
+
+                # concat all feature maps
+                # (5, batch_size, 160) -> (batch_size, 800)
+                out = torch.cat([p for p in pooled], dim=1)
+
+                return out
 
         model = torch.hub.load('datvuthanh/hybridnets', 'hybridnets', pretrained=True)
         model = HybridNetsBackboneMod(model)
