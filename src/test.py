@@ -88,8 +88,9 @@ def test_load_all_datasets():
     m_name = random.choice(l.supported_models)
 
     _, _, transform = l.load_model(m_name, device)
-    datasets, collate_fn = l.load_all_datasets(transform)
+    datasets= l.load_all_datasets()
 
     assert len(datasets) == len(l.supported_datasets), 'test_load_all_datasets: lengths do not match'
+    breakpoint()
 
 test_load_all_datasets()
