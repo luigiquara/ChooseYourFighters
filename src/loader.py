@@ -1,6 +1,7 @@
 '''Download pretrained models from online hubs, remove classification head and return model
 '''
 import argparse
+from typing import Dict
 
 import torch
 from torchvision import transforms
@@ -200,7 +201,7 @@ class Loader():
 
         return sources, models, transformations
 
-    def load_dataset(self, dataset_name: str, *args, transform=None):
+    def load_dataset(self, dataset_name: str, *args):
         from datasets import load_dataset
 
         if dataset_name not in self.supported_datasets:
@@ -232,37 +233,39 @@ class Loader():
             if 'val' in k: val_ds = dataset[k]
         test_ds = dataset['test']
 
-        if transform:
-            import torch
+        return {'train': train_ds, 'val': val_ds, 'test': test_ds}
 
-            def preprocess_train(samples):
-                samples['t_image'] = [transform['train'](image.convert('RGB')) for image in samples['image']]
-                return samples
-
-            def preprocess_eval(samples):
-                samples['t_image'] = [transform['eval'](image.convert('RGB')) for image in samples['image']]
-                return samples
-
-            def collate_fn(samples):
-                t_images = torch.stack([s['t_image'] for s in samples])
-                labels = torch.tensor([s['label'] for s in samples])
-                #return {'imgs': t_images, 'labels': labels}
-                return (t_images, labels)
-
-            train_ds.set_transform(preprocess_train)
-            val_ds.set_transform(preprocess_eval)
-            test_ds.set_transform(preprocess_eval)
-
-        return {'train': train_ds, 'val': val_ds, 'test': test_ds}, collate_fn
-
-    def load_all_datasets(self, transform=None):
+    def load_all_datasets(self):
         datasets = []
         
         for d_name in self.supported_datasets:
             try: args = self.dataset_args[d_name]
             except: args = None
 
-            d, collate_fn = self.load_dataset(d_name, args, transform=transform)
+            d = self.load_dataset(d_name, args)
             datasets.append(d)
 
-        return datasets, collate_fn
+        return datasets
+
+    def apply_transform(self, dataset: Dict, transform):
+        import torch
+
+        def preprocess_train(samples):
+            samples['t_image'] = [transform['train'](image.convert('RGB')) for image in samples['image']]
+            return samples
+
+        def preprocess_eval(samples):
+            samples['t_image'] = [transform['eval'](image.convert('RGB')) for image in samples['image']]
+            return samples
+
+        def collate_fn(samples):
+            t_images = torch.stack([s['t_image'] for s in samples])
+            labels = torch.tensor([s['label'] for s in samples])
+            #return {'imgs': t_images, 'labels': labels}
+            return (t_images, labels)
+
+        dataset['train'].set_transform(preprocess_train)
+        dataset['val'].set_transform(preprocess_eval)
+        dataset['test'].set_transform(preprocess_eval)
+
+        return dataset, collate_fn
