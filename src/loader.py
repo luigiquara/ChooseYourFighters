@@ -66,7 +66,7 @@ class Loader():
                     transforms.ToTensor(),
                     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
                 ]),
-                'test': transforms.Compose([
+                'eval': transforms.Compose([
                     transforms.Resize(256),
                     transforms.CenterCrop(224),
                     transforms.ToTensor(),
@@ -88,7 +88,7 @@ class Loader():
                     transforms.ToTensor(),
                     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
                 ]),
-                'test': transforms.Compose([
+                'eval': transforms.Compose([
                     transforms.Resize(256),
                     transforms.CenterCrop(224),
                     transforms.ToTensor(),
@@ -129,7 +129,7 @@ class Loader():
                     transforms.ToTensor(),
                     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
                 ]),
-                'test': transforms.Compose([
+                'eval': transforms.Compose([
                     transforms.Resize((256, 256)),
                     #transforms.CenterCrop(224),
                     transforms.ToTensor(),
@@ -162,7 +162,7 @@ class Loader():
                     transforms.ToTensor(),
                     #transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
                 ]),
-                'test': transforms.Compose([
+                'eval': transforms.Compose([
                     transforms.Resize((256, 256)),
                     #transforms.CenterCrop(224),
                     transforms.ToTensor(),
@@ -184,22 +184,24 @@ class Loader():
 
         # PyTorch models have the transform variable
         # HuggingFace models have the processor
-        if 'transform' in locals(): return 'torch', model, transform
-        elif 'processor' in locals(): return 'huggingface', model, processor
+        if 'transform' in locals(): return 'torch', model_name, model, transform
+        elif 'processor' in locals(): return 'huggingface', modela_name, model, processor
 
     def load_all_models(self, device):
         sources = []
+        names = []
         models = []
         transformations = []
 
         for m_name in self.supported_models:
-            s, m, t = self.load_model(m_name, device)
+            s, n, m, t = self.load_model(m_name, device)
 
             sources.append(s)
+            names.append(n)
             models.append(m)
             transformations.append(t)
 
-        return sources, models, transformations
+        return sources, names, models, transformations
 
     def load_dataset(self, dataset_name: str, *args):
         from datasets import load_dataset
@@ -233,19 +235,22 @@ class Loader():
             if 'val' in k: val_ds = dataset[k]
         test_ds = dataset['test']
 
-        return {'train': train_ds, 'val': val_ds, 'test': test_ds}
+        return dataset_name, {'train': train_ds, 'val': val_ds, 'test': test_ds}
 
     def load_all_datasets(self):
+        names = []
         datasets = []
         
         for d_name in self.supported_datasets:
             try: args = self.dataset_args[d_name]
             except: args = None
 
-            d = self.load_dataset(d_name, args)
+            n, d = self.load_dataset(d_name, args)
+
+            names.append(n)
             datasets.append(d)
 
-        return datasets
+        return names, datasets
 
     def apply_transform(self, dataset: Dict, transform):
         import torch
