@@ -3,3 +3,6 @@ src/HybridNets
 src/nts_net
 src/ntsnet-cub200
 src/__pycache__
+src/wandb
+src/nohup.out
+fighters
