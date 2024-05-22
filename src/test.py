@@ -93,4 +93,28 @@ def test_load_all_datasets():
     assert len(datasets) == len(l.supported_datasets), 'test_load_all_datasets: lengths do not match'
     breakpoint()
 
-test_load_all_datasets()
+def test_load_dataset():
+    device = 'cpu'
+    l = Loader()
+    dataset_name = 'imagenet_sketch'
+
+    dataset = l.load_dataset(dataset_name, 10, 10, 10)
+    breakpoint()
+
+def test_apply_transform():
+    device = 'cpu'
+    model_name = 'UNet'
+    dataset_name = 'frgfm/imagewoof'
+
+    l = Loader()
+    s, n, model, transform = l.load_model(model_name, device)
+    print('Loaded model')
+
+    n, dataset = l.load_dataset(dataset_name, 'full_size')
+    print('Loaded dataset')
+
+    dataset, collate_fn = l.apply_transform(dataset, transform)
+    print('Applied transformations')
+    breakpoint()
+
+test_apply_transform()
