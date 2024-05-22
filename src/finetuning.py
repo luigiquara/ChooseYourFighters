@@ -2,6 +2,7 @@ import argparse
 from datetime import datetime
 import wandb
 
+import torch
 from torch import nn
 from torch.optim import Adam
 from torch.utils.data import DataLoader
@@ -52,9 +53,10 @@ def run(params):
             if params.dataset_args: n, d = l.load_dataset(dataset_name, params.dataset_args)
             else: n, d = l.load_dataset(dataset_name)
 
-        d_names.append(n)
-        datasets.append(d)
+            d_names.append(n)
+            datasets.append(d)
     else: d_names, datasets = l.load_all_datasets()
+    print(d_names)
 
     # for every combination of loaded models and datasets
     # finetune a classifier and log the results
@@ -64,7 +66,7 @@ def run(params):
 
             if params.log:
                 run = wandb.init(
-                  project='Fighters',
+                  project='Fighters-Fewshot',
                   config = {
                     'model': m_name,
                     'dataset': d_name,
@@ -76,12 +78,17 @@ def run(params):
             else: save_path = params.save_root + datetime.now().strftime('%H%M%S')
 
             dataset, collate_fn = l.apply_transform(dataset, transform)
+            num_classes = len(dataset['train'].unique('label'))
+            dataset = l.subsets_from_dataset(dataset, 1000, 200, 200)
+
             train_loader = DataLoader(dataset['train'], batch_size=params.batch_size, collate_fn=collate_fn)
             val_loader = DataLoader(dataset['val'], batch_size=params.batch_size, collate_fn=collate_fn)
-            num_classes = len(dataset['train'].unique('label'))
 
             print('Finetuning...')
             finetune(model, train_loader, val_loader, num_classes, params.max_epochs, params.lr, save_path, params.device, params.log)
+
+            if params.log: run.finish()
+            torch.cuda.empty_cache()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
