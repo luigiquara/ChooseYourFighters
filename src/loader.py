@@ -78,8 +78,9 @@ class Loader():
             raise NotImplementedError
 
         elif model_name == 'SWSL_ResNext':
-            model = torch.hub.load('facebookresearch/semi-supervised-ImageNet1K-models', 'resnext101_32x16d_swsl')
-            model = torch.nn.Sequential(*(list(model.children())[:-1]))
+            model = torch.hub.load('facebookresearch/semi-supervised-ImageNet1K-models', 'resnext101_32x8d_swsl')
+            #model = torch.nn.Sequential(*(list(model.children())[:-1]))
+            model.fc = torch.nn.Identity()
 
             transform = {
                 'train': transforms.Compose([
@@ -211,7 +212,10 @@ class Loader():
             return
 
         if args: dataset = load_dataset(dataset_name, args[0], cache_dir='/disk4/lquarantiello/huggingface/datasets/')
-        else: dataset = load_dataset(dataset_name, cache_dir='/disk4/lquarantiello/huggingface/datasets/')
+        else:
+            try: args = self.dataset_args[dataset_name]
+            except: args = None
+            dataset = load_dataset(dataset_name, args, cache_dir='/disk4/lquarantiello/huggingface/datasets/')
         o_len_dataset = sum(dataset.num_rows.values())
 
         # split the dataset, if not already
@@ -245,6 +249,7 @@ class Loader():
             try: args = self.dataset_args[d_name]
             except: args = None
 
+            print(args)
             n, d = self.load_dataset(d_name, args)
 
             names.append(n)
@@ -274,3 +279,19 @@ class Loader():
         dataset['test'].set_transform(preprocess_eval)
 
         return dataset, collate_fn
+
+    def _subsets_from_dataset(self, dataset, train_size, val_size, test_size):
+        dataset['train'] = dataset['train'][:train_size]
+        dataset['val'] = dataset['val'][:val_size]
+        dataset['test'] = dataset['test'][test_size]
+
+        return dataset
+
+    def subsets_from_dataset(self, dataset, train_size, val_size, test_size):
+        import random
+        from torch.utils.data import Subset
+
+        for key in ['train', 'val', 'test']:
+            dataset[key] = Subset(dataset[key], random.choices(range(len(dataset[key])), k=train_size))
+
+        return dataset
