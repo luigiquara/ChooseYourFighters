@@ -141,8 +141,10 @@ def run(params):
             train_loader = DataLoader(dataset['train'], batch_size=params.batch_size, collate_fn=collate_fn)
             val_loader = DataLoader(dataset['val'], batch_size=params.batch_size, collate_fn=collate_fn)
 
-            if params.classifier_type == 'mlp': finetune_mlp(model, source, train_loader, val_loader, collate_fn, num_classes, params.max_epochs, params.lr, save_path, params.device, params.log)
-            elif params.classifier_type == 'logisticRegression': finetune_logReg(model, train_loader, val_loader, source, params.device, params.log)
+            print(params.classifier_type)
+            if params.classifier_type == 'MLP': finetune_mlp(model, source, train_loader, val_loader, collate_fn, num_classes, params.max_epochs, params.lr, save_path, params.device, params.log)
+            elif params.classifier_type == 'LogisticRegression': finetune_logReg(model, train_loader, val_loader, source, params.device, params.log)
+            else: raise NotImplementedError
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
