@@ -8,7 +8,7 @@ from torchvision import transforms
 
 class Loader():
     def __init__(self):
-        self.supported_models = ['NTSNET', 'SWSL_ResNext', 'HybridNets', 'UNet']
+        self.supported_models = ['NTSNET', 'SWSL_ResNext', 'HybridNets', 'UNet', 'ViT_IN', 'ViT_food101']
         self.supported_datasets = ['frgfm/imagewoof', 'imagenet_sketch', 'Matthijs/snacks', 'keremberke/chest-xray-classification', 'nelorth/oxford-flowers']
         self.dataset_args = {'frgfm/imagewoof': 'full_size', 'keremberke/chest-xray-classification': 'full'}
 
@@ -186,7 +186,7 @@ class Loader():
         # PyTorch models have the transform variable
         # HuggingFace models have the processor
         if 'transform' in locals(): return 'torch', model_name, model, transform
-        elif 'processor' in locals(): return 'huggingface', modela_name, model, processor
+        elif 'processor' in locals(): return 'huggingface', model_name, model, processor
 
     def load_all_models(self, device):
         sources = []
@@ -217,6 +217,11 @@ class Loader():
             except: args = None
             dataset = load_dataset(dataset_name, args, cache_dir='/disk4/lquarantiello/huggingface/datasets/')
         o_len_dataset = sum(dataset.num_rows.values())
+
+        # change from "labels" to "label", to be the same as other datasets
+        if 'keremberke/chest-xray-classification' in dataset_name:
+            for k in dataset.keys():
+                dataset[k] = dataset[k].rename_column('labels', 'label')
 
         # split the dataset, if not already
         # add validation set, if needed
@@ -249,7 +254,6 @@ class Loader():
             try: args = self.dataset_args[d_name]
             except: args = None
 
-            print(args)
             n, d = self.load_dataset(d_name, args)
 
             names.append(n)
@@ -257,9 +261,29 @@ class Loader():
 
         return names, datasets
 
-    def apply_transform(self, dataset: Dict, transform):
-        import torch
+    def apply_transform(self, dataset: Dict, transform, source):
+        if source == 'torch': dataset, collate_fn = self._apply_transform_torch(dataset, transform)
+        elif source == 'huggingface': dataset, collate_fn = self._apply_transform_hf(dataset, transform)
 
+        return dataset, collate_fn
+
+    def _apply_transform_hf(self, dataset: Dict, transform):
+        def preprocess(batch):
+            # Take a list of PIL images and turn them to pixel values
+            inputs = transform([x for x in batch['image']], return_tensors='pt')
+            inputs['label'] = batch['label']
+            return inputs
+
+        def collate_fn(batch):
+            return (torch.stack([x['pixel_values'] for x in batch]), torch.tensor([x['label'] for x in batch]))
+
+        dataset['train'].set_transform(preprocess)
+        dataset['val'].set_transform(preprocess)
+        dataset['test'].set_transform(preprocess)
+
+        return dataset, collate_fn
+
+    def _apply_transform_torch(self, dataset: Dict, transform):
         def preprocess_train(samples):
             samples['t_image'] = [transform['train'](image.convert('RGB')) for image in samples['image']]
             return samples
@@ -271,7 +295,6 @@ class Loader():
         def collate_fn(samples):
             t_images = torch.stack([s['t_image'] for s in samples])
             labels = torch.tensor([s['label'] for s in samples])
-            #return {'imgs': t_images, 'labels': labels}
             return (t_images, labels)
 
         dataset['train'].set_transform(preprocess_train)
@@ -280,18 +303,35 @@ class Loader():
 
         return dataset, collate_fn
 
-    def _subsets_from_dataset(self, dataset, train_size, val_size, test_size):
-        dataset['train'] = dataset['train'][:train_size]
-        dataset['val'] = dataset['val'][:val_size]
-        dataset['test'] = dataset['test'][test_size]
+    def subsets_from_dataset(self, dataset, n_shot: int, n_val: int, n_query: int):
+        '''Get train, val and test subsets from dataset.
+        
+        Parameters
+        ----------
+        n_shot: int
+            The number of supporting images per class -> len(train_set) = n_classes * n_shot
+        n_val: int
+            The number of evaluation images per class -> len(val_set) = n_classes * n_val
+        n_query: int
+            The number of query images per class -> len(test_set) = n_classes * n_query
+        '''
 
-        return dataset
-
-    def subsets_from_dataset(self, dataset, train_size, val_size, test_size):
+        import numpy as np
         import random
         from torch.utils.data import Subset
 
-        for key in ['train', 'val', 'test']:
-            dataset[key] = Subset(dataset[key], random.choices(range(len(dataset[key])), k=train_size))
+        n_classes = len(dataset['train'].unique('label'))
+
+        for key, k in zip(['train', 'val', 'test'], [n_shot, n_val, n_query]):
+            print(f'Creating subset for {key}')
+
+            selected_idxs = []
+            for c in range(n_classes):
+                current_class_idxs = np.where(dataset[key][:]['label'] == c)
+                selected_idxs.extend(random.choices(current_class_idxs, k=k))
+
+            assert len(selected_idxs) == n_classes * k, 'sizes do not match'
+
+            dataset[key] = Subset(dataset[key], selected_idxs)
 
         return dataset
